@@ -1,0 +1,927 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+  <title>Mini Maze Chase - Mobile</title>
+  <style>
+    :root {
+      --bg: #050816;
+      --panel: #0c1230;
+      --text: #f6f7ff;
+      --muted: #9ca8d8;
+      --accent: #ffd23f;
+      --wall: #2454ff;
+      --wall-glow: rgba(36, 84, 255, 0.65);
+      --danger: #ff4d6d;
+      --good: #35f2a8;
+    }
+
+    * {
+      box-sizing: border-box;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    html, body {
+      margin: 0;
+      min-height: 100%;
+      background:
+        radial-gradient(circle at top, rgba(47, 81, 255, 0.22), transparent 38%),
+        linear-gradient(180deg, #050816 0%, #02030a 100%);
+      color: var(--text);
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      overflow: hidden;
+      touch-action: none;
+      user-select: none;
+    }
+
+    .app {
+      width: 100vw;
+      height: 100dvh;
+      display: grid;
+      grid-template-rows: auto 1fr auto;
+      gap: 10px;
+      padding: 12px;
+    }
+
+    header {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 10px;
+      align-items: center;
+      padding: 10px 12px;
+      background: rgba(12, 18, 48, 0.86);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 16px;
+      box-shadow: 0 14px 35px rgba(0,0,0,0.28);
+      backdrop-filter: blur(10px);
+    }
+
+    h1 {
+      margin: 0;
+      font-size: clamp(18px, 5vw, 25px);
+      letter-spacing: 0.04em;
+      line-height: 1;
+    }
+
+    .subtitle {
+      margin-top: 4px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .stats {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    .pill {
+      padding: 7px 9px;
+      border-radius: 999px;
+      background: rgba(255,255,255,0.07);
+      border: 1px solid rgba(255,255,255,0.08);
+      white-space: nowrap;
+    }
+
+    .pill b {
+      color: var(--text);
+      font-variant-numeric: tabular-nums;
+    }
+
+    main {
+      display: grid;
+      place-items: center;
+      min-height: 0;
+    }
+
+    .game-frame {
+      position: relative;
+      width: min(100%, calc((100dvh - 214px) * 0.905));
+      max-width: 520px;
+      aspect-ratio: 19 / 21;
+      background: #02030a;
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 20px;
+      box-shadow:
+        0 0 0 1px rgba(255,255,255,0.04) inset,
+        0 28px 60px rgba(0,0,0,0.45);
+      overflow: hidden;
+    }
+
+    canvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+      image-rendering: auto;
+      touch-action: none;
+    }
+
+    .overlay {
+      position: absolute;
+      inset: 0;
+      display: grid;
+      place-items: center;
+      padding: 22px;
+      background: rgba(2,3,10,0.76);
+      backdrop-filter: blur(7px);
+      text-align: center;
+    }
+
+    .overlay.hidden {
+      display: none;
+    }
+
+    .card {
+      width: min(100%, 360px);
+      padding: 22px;
+      border-radius: 22px;
+      background: rgba(12, 18, 48, 0.92);
+      border: 1px solid rgba(255,255,255,0.1);
+      box-shadow: 0 26px 70px rgba(0,0,0,0.45);
+    }
+
+    .card h2 {
+      margin: 0 0 8px;
+      font-size: 24px;
+    }
+
+    .card p {
+      margin: 0 0 16px;
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 1.45;
+    }
+
+    button {
+      appearance: none;
+      border: 0;
+      color: #111;
+      background: var(--accent);
+      font-weight: 800;
+      border-radius: 14px;
+      cursor: pointer;
+      box-shadow: 0 8px 0 #ad891e, 0 18px 26px rgba(0,0,0,0.28);
+      transition: transform .08s ease, box-shadow .08s ease, filter .2s ease;
+    }
+
+    button:active {
+      transform: translateY(5px);
+      box-shadow: 0 3px 0 #ad891e, 0 12px 20px rgba(0,0,0,0.28);
+      filter: brightness(0.94);
+    }
+
+    .primary {
+      min-height: 48px;
+      padding: 0 20px;
+      font-size: 16px;
+    }
+
+    .controls {
+      display: grid;
+      grid-template-columns: 1fr auto 1fr;
+      align-items: center;
+      gap: 10px;
+      padding-bottom: env(safe-area-inset-bottom);
+    }
+
+    .hint {
+      font-size: 12px;
+      line-height: 1.35;
+      color: var(--muted);
+      padding-left: 5px;
+    }
+
+    .dpad {
+      display: grid;
+      grid-template-columns: repeat(3, 56px);
+      grid-template-rows: repeat(3, 48px);
+      gap: 7px;
+      justify-content: center;
+      align-content: center;
+    }
+
+    .dpad button {
+      min-width: 56px;
+      min-height: 48px;
+      font-size: 20px;
+      border-radius: 16px;
+    }
+
+    .dpad .up { grid-column: 2; grid-row: 1; }
+    .dpad .left { grid-column: 1; grid-row: 2; }
+    .dpad .right { grid-column: 3; grid-row: 2; }
+    .dpad .down { grid-column: 2; grid-row: 3; }
+
+    .secondary-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 8px;
+      padding-right: 5px;
+    }
+
+    .mini {
+      min-height: 44px;
+      padding: 0 13px;
+      font-size: 12px;
+      background: #ffffff;
+      box-shadow: 0 7px 0 #a4a8ba, 0 16px 22px rgba(0,0,0,0.28);
+    }
+
+    @media (max-height: 690px) {
+      .app {
+        gap: 7px;
+        padding: 8px;
+      }
+
+      header {
+        padding: 8px 10px;
+        border-radius: 14px;
+      }
+
+      .subtitle {
+        display: none;
+      }
+
+      .dpad {
+        grid-template-columns: repeat(3, 50px);
+        grid-template-rows: repeat(3, 40px);
+        gap: 6px;
+      }
+
+      .dpad button {
+        min-width: 50px;
+        min-height: 40px;
+      }
+
+      .game-frame {
+        width: min(100%, calc((100dvh - 168px) * 0.905));
+      }
+    }
+
+    @media (min-width: 760px) {
+      body {
+        overflow: auto;
+      }
+
+      .app {
+        max-width: 720px;
+        margin: 0 auto;
+      }
+
+      .hint {
+        font-size: 13px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header>
+      <div>
+        <h1>MINI MAZE CHASE</h1>
+        <div class="subtitle">Gioco arcade ispirato al classico labirinto, ottimizzato per smartphone</div>
+      </div>
+      <div class="stats">
+        <div class="pill">Score <b id="score">0</b></div>
+        <div class="pill">Lives <b id="lives">3</b></div>
+        <div class="pill">Level <b id="level">1</b></div>
+      </div>
+    </header>
+
+    <main>
+      <div class="game-frame" id="gameFrame">
+        <canvas id="game" width="760" height="840" aria-label="Mini Maze Chase"></canvas>
+        <div class="overlay" id="overlay">
+          <div class="card">
+            <h2 id="overlayTitle">Pronto?</h2>
+            <p id="overlayText">Raccogli tutti i punti, evita i fantasmi e usa le pillole grandi per contrattaccare. Puoi giocare con swipe o pulsanti.</p>
+            <button class="primary" id="startBtn">START</button>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <section class="controls">
+      <div class="hint">Swipe sul labirinto oppure usa il D-pad. Da PC funzionano anche le frecce.</div>
+
+      <div class="dpad" aria-label="Controlli direzionali">
+        <button class="up" data-dir="up">▲</button>
+        <button class="left" data-dir="left">◀</button>
+        <button class="right" data-dir="right">▶</button>
+        <button class="down" data-dir="down">▼</button>
+      </div>
+
+      <div class="secondary-actions">
+        <button class="mini" id="pauseBtn">PAUSA</button>
+      </div>
+    </section>
+  </div>
+
+  <script>
+    (() => {
+      "use strict";
+
+      const canvas = document.getElementById("game");
+      const ctx = canvas.getContext("2d");
+      const overlay = document.getElementById("overlay");
+      const overlayTitle = document.getElementById("overlayTitle");
+      const overlayText = document.getElementById("overlayText");
+      const startBtn = document.getElementById("startBtn");
+      const pauseBtn = document.getElementById("pauseBtn");
+      const scoreEl = document.getElementById("score");
+      const livesEl = document.getElementById("lives");
+      const levelEl = document.getElementById("level");
+      const gameFrame = document.getElementById("gameFrame");
+
+      const baseMap = [
+        "###################",
+        "#o.......#.......o#",
+        "#.###.##.#.##.###.#",
+        "#.................#",
+        "#.###.#.###.#.###.#",
+        "#.....#..#..#.....#",
+        "#####.## # ##.#####",
+        "    #.#     #.#    ",
+        "#####.# ### #.#####",
+        "     .  # #  .     ",
+        "#####.# ### #.#####",
+        "    #.#     #.#    ",
+        "#####.# ### #.#####",
+        "#........#........#",
+        "#.###.##.#.##.###.#",
+        "#o..#.........#..o#",
+        "###.#.#.###.#.#.###",
+        "#.....#..#..#.....#",
+        "#.#######.#######.#",
+        "#.................#",
+        "###################"
+      ];
+
+      const cols = baseMap[0].length;
+      const rows = baseMap.length;
+      const tileW = canvas.width / cols;
+      const tileH = canvas.height / rows;
+      const dirs = {
+        left: { x: -1, y: 0 },
+        right: { x: 1, y: 0 },
+        up: { x: 0, y: -1 },
+        down: { x: 0, y: 1 }
+      };
+      const opposite = { left: "right", right: "left", up: "down", down: "up" };
+      const ghostColors = ["#ff4d6d", "#00e5ff", "#ff9f1c", "#d96cff"];
+
+      let walls = [];
+      let pellets = [];
+      let powerPellets = [];
+      let player;
+      let ghosts = [];
+      let score = 0;
+      let lives = 3;
+      let level = 1;
+      let running = false;
+      let paused = false;
+      let won = false;
+      let tickTimer = 0;
+      let lastTs = 0;
+      let mouth = 0;
+      let frightenedUntil = 0;
+      let pelletsLeft = 0;
+
+      function freshState(resetScore = true) {
+        walls = [];
+        pellets = [];
+        powerPellets = [];
+        pelletsLeft = 0;
+
+        for (let y = 0; y < rows; y++) {
+          walls[y] = [];
+          pellets[y] = [];
+          powerPellets[y] = [];
+          for (let x = 0; x < cols; x++) {
+            const c = baseMap[y][x];
+            walls[y][x] = c === "#";
+            pellets[y][x] = c === ".";
+            powerPellets[y][x] = c === "o";
+            if (pellets[y][x] || powerPellets[y][x]) pelletsLeft++;
+          }
+        }
+
+        player = {
+          x: 9,
+          y: 15,
+          dir: "left",
+          nextDir: "left",
+          spawnX: 9,
+          spawnY: 15
+        };
+
+        ghosts = [
+          makeGhost(9, 9, "left", 0),
+          makeGhost(8, 10, "up", 1),
+          makeGhost(10, 10, "up", 2),
+          makeGhost(9, 11, "right", 3)
+        ];
+
+        if (resetScore) {
+          score = 0;
+          lives = 3;
+          level = 1;
+        }
+
+        frightenedUntil = 0;
+        won = false;
+        updateHud();
+      }
+
+      function makeGhost(x, y, dir, colorIndex) {
+        return {
+          x, y,
+          spawnX: x,
+          spawnY: y,
+          dir,
+          colorIndex,
+          eatenCooldown: 0
+        };
+      }
+
+      function updateHud() {
+        scoreEl.textContent = score;
+        livesEl.textContent = lives;
+        levelEl.textContent = level;
+      }
+
+      function isWall(x, y) {
+        if (y < 0 || y >= rows) return true;
+        if (x < 0 || x >= cols) return false;
+        return walls[y][x];
+      }
+
+      function canMove(entity, dir) {
+        const d = dirs[dir];
+        const nx = wrapX(entity.x + d.x);
+        const ny = entity.y + d.y;
+        return !isWall(nx, ny);
+      }
+
+      function wrapX(x) {
+        if (x < 0) return cols - 1;
+        if (x >= cols) return 0;
+        return x;
+      }
+
+      function moveEntity(entity, dir) {
+        const d = dirs[dir];
+        entity.x = wrapX(entity.x + d.x);
+        entity.y += d.y;
+        entity.dir = dir;
+      }
+
+      function setDirection(dir) {
+        if (!dirs[dir]) return;
+        player.nextDir = dir;
+        if (!running) startGame();
+      }
+
+      function startGame() {
+        if (!running || won || lives <= 0) {
+          freshState(true);
+        }
+
+        running = true;
+        paused = false;
+        overlay.classList.add("hidden");
+        pauseBtn.textContent = "PAUSA";
+        lastTs = performance.now();
+        requestAnimationFrame(loop);
+      }
+
+      function nextLevel() {
+        level++;
+        const keepScore = score;
+        const keepLives = Math.min(5, lives + 1);
+        freshState(false);
+        score = keepScore + 500;
+        lives = keepLives;
+        updateHud();
+        running = true;
+        paused = false;
+        overlay.classList.add("hidden");
+      }
+
+      function showOverlay(title, text, buttonText = "START") {
+        overlayTitle.textContent = title;
+        overlayText.textContent = text;
+        startBtn.textContent = buttonText;
+        overlay.classList.remove("hidden");
+      }
+
+      function togglePause() {
+        if (!running || lives <= 0 || won) return;
+        paused = !paused;
+        pauseBtn.textContent = paused ? "RIPRENDI" : "PAUSA";
+        if (paused) {
+          showOverlay("Pausa", "Tocca Riprendi oppure START per continuare.", "RIPRENDI");
+        } else {
+          overlay.classList.add("hidden");
+          lastTs = performance.now();
+          requestAnimationFrame(loop);
+        }
+      }
+
+      function gameStep() {
+        if (canMove(player, player.nextDir)) {
+          player.dir = player.nextDir;
+        }
+        if (canMove(player, player.dir)) {
+          moveEntity(player, player.dir);
+        }
+
+        eatAtPlayer();
+        moveGhosts();
+        checkCollisions();
+
+        if (pelletsLeft <= 0) {
+          won = true;
+          running = false;
+          showOverlay("Livello completato", "Ottimo lavoro. Premi START per passare al livello successivo.", "PROSSIMO LIVELLO");
+          startBtn.onclick = () => {
+            startBtn.onclick = startGame;
+            nextLevel();
+            lastTs = performance.now();
+            requestAnimationFrame(loop);
+          };
+        }
+
+        updateHud();
+      }
+
+      function eatAtPlayer() {
+        if (pellets[player.y] && pellets[player.y][player.x]) {
+          pellets[player.y][player.x] = false;
+          pelletsLeft--;
+          score += 10;
+        }
+
+        if (powerPellets[player.y] && powerPellets[player.y][player.x]) {
+          powerPellets[player.y][player.x] = false;
+          pelletsLeft--;
+          score += 50;
+          frightenedUntil = performance.now() + Math.max(4500, 8500 - level * 350);
+        }
+      }
+
+      function moveGhosts() {
+        const frightened = performance.now() < frightenedUntil;
+
+        ghosts.forEach((g) => {
+          if (g.eatenCooldown > 0) {
+            g.eatenCooldown--;
+            return;
+          }
+
+          const options = Object.keys(dirs).filter((dir) => {
+            if (dir === opposite[g.dir] && Math.random() > 0.08) return false;
+            return canMove(g, dir);
+          });
+
+          const valid = options.length ? options : Object.keys(dirs).filter((dir) => canMove(g, dir));
+          if (!valid.length) return;
+
+          let chosen = valid[Math.floor(Math.random() * valid.length)];
+
+          const chaseChance = frightened ? 0.12 : Math.min(0.78, 0.42 + level * 0.055);
+          if (Math.random() < chaseChance) {
+            chosen = bestGhostDirection(g, valid, frightened);
+          }
+
+          moveEntity(g, chosen);
+        });
+      }
+
+      function bestGhostDirection(g, validDirs, frightened) {
+        let best = validDirs[0];
+        let bestScore = frightened ? -Infinity : Infinity;
+
+        validDirs.forEach((dir) => {
+          const d = dirs[dir];
+          const nx = wrapX(g.x + d.x);
+          const ny = g.y + d.y;
+          const dist = Math.abs(nx - player.x) + Math.abs(ny - player.y);
+
+          if (!frightened && dist < bestScore) {
+            bestScore = dist;
+            best = dir;
+          }
+
+          if (frightened && dist > bestScore) {
+            bestScore = dist;
+            best = dir;
+          }
+        });
+
+        return best;
+      }
+
+      function checkCollisions() {
+        const frightened = performance.now() < frightenedUntil;
+
+        ghosts.forEach((g) => {
+          if (g.eatenCooldown > 0) return;
+
+          if (g.x === player.x && g.y === player.y) {
+            if (frightened) {
+              score += 200;
+              g.x = g.spawnX;
+              g.y = g.spawnY;
+              g.dir = ["left", "right", "up", "down"][Math.floor(Math.random() * 4)];
+              g.eatenCooldown = 4;
+            } else {
+              lives--;
+              if (lives <= 0) {
+                running = false;
+                showOverlay("Game Over", "Hai terminato le vite. Premi START per ricominciare.", "RIGIOCA");
+              } else {
+                resetPositions();
+              }
+            }
+          }
+        });
+      }
+
+      function resetPositions() {
+        player.x = player.spawnX;
+        player.y = player.spawnY;
+        player.dir = "left";
+        player.nextDir = "left";
+        ghosts.forEach((g) => {
+          g.x = g.spawnX;
+          g.y = g.spawnY;
+          g.dir = ["left", "right", "up", "down"][Math.floor(Math.random() * 4)];
+          g.eatenCooldown = 8;
+        });
+        frightenedUntil = 0;
+      }
+
+      function loop(ts) {
+        if (!running || paused) return;
+
+        const dt = ts - lastTs;
+        lastTs = ts;
+        tickTimer += dt;
+        mouth += dt * 0.009;
+
+        const speed = Math.max(74, 132 - level * 5);
+        while (tickTimer >= speed) {
+          gameStep();
+          tickTimer -= speed;
+        }
+
+        draw();
+        requestAnimationFrame(loop);
+      }
+
+      function draw() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        drawBackground();
+        drawMaze();
+        drawPellets();
+        drawGhosts();
+        drawPlayer();
+        drawFrightenedTimer();
+      }
+
+      function drawBackground() {
+        ctx.fillStyle = "#02030a";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        const grad = ctx.createRadialGradient(canvas.width / 2, canvas.height / 2, 60, canvas.width / 2, canvas.height / 2, canvas.height * 0.72);
+        grad.addColorStop(0, "rgba(36,84,255,0.10)");
+        grad.addColorStop(1, "rgba(2,3,10,0)");
+        ctx.fillStyle = grad;
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+      }
+
+      function drawMaze() {
+        ctx.save();
+        ctx.lineJoin = "round";
+        for (let y = 0; y < rows; y++) {
+          for (let x = 0; x < cols; x++) {
+            if (!walls[y][x]) continue;
+            const rx = x * tileW + 3;
+            const ry = y * tileH + 3;
+            const rw = tileW - 6;
+            const rh = tileH - 6;
+
+            ctx.shadowColor = "rgba(36,84,255,0.75)";
+            ctx.shadowBlur = 12;
+            roundRect(ctx, rx, ry, rw, rh, 7);
+            ctx.fillStyle = "#1026a8";
+            ctx.fill();
+
+            ctx.shadowBlur = 0;
+            roundRect(ctx, rx + 3, ry + 3, rw - 6, rh - 6, 5);
+            ctx.fillStyle = "#2454ff";
+            ctx.fill();
+          }
+        }
+        ctx.restore();
+      }
+
+      function drawPellets() {
+        for (let y = 0; y < rows; y++) {
+          for (let x = 0; x < cols; x++) {
+            const cx = x * tileW + tileW / 2;
+            const cy = y * tileH + tileH / 2;
+
+            if (pellets[y][x]) {
+              ctx.beginPath();
+              ctx.arc(cx, cy, Math.min(tileW, tileH) * 0.075, 0, Math.PI * 2);
+              ctx.fillStyle = "#fff3b0";
+              ctx.fill();
+            }
+
+            if (powerPellets[y][x]) {
+              ctx.beginPath();
+              ctx.arc(cx, cy, Math.min(tileW, tileH) * (0.17 + Math.sin(mouth * 1.4) * 0.025), 0, Math.PI * 2);
+              ctx.fillStyle = "#ffffff";
+              ctx.shadowColor = "#ffd23f";
+              ctx.shadowBlur = 12;
+              ctx.fill();
+              ctx.shadowBlur = 0;
+            }
+          }
+        }
+      }
+
+      function drawPlayer() {
+        const cx = player.x * tileW + tileW / 2;
+        const cy = player.y * tileH + tileH / 2;
+        const r = Math.min(tileW, tileH) * 0.39;
+        const m = Math.abs(Math.sin(mouth)) * 0.55 + 0.14;
+        const angle = {
+          right: 0,
+          down: Math.PI / 2,
+          left: Math.PI,
+          up: -Math.PI / 2
+        }[player.dir];
+
+        ctx.save();
+        ctx.translate(cx, cy);
+        ctx.rotate(angle);
+        ctx.beginPath();
+        ctx.moveTo(0, 0);
+        ctx.arc(0, 0, r, m, Math.PI * 2 - m);
+        ctx.closePath();
+        ctx.fillStyle = "#ffd23f";
+        ctx.shadowColor = "rgba(255,210,63,0.70)";
+        ctx.shadowBlur = 18;
+        ctx.fill();
+
+        ctx.shadowBlur = 0;
+        ctx.beginPath();
+        ctx.arc(r * 0.18, -r * 0.48, r * 0.11, 0, Math.PI * 2);
+        ctx.fillStyle = "#111";
+        ctx.fill();
+        ctx.restore();
+      }
+
+      function drawGhosts() {
+        const frightened = performance.now() < frightenedUntil;
+
+        ghosts.forEach((g) => {
+          if (g.eatenCooldown > 0 && Math.floor(performance.now() / 120) % 2 === 0) return;
+
+          const cx = g.x * tileW + tileW / 2;
+          const cy = g.y * tileH + tileH / 2;
+          const r = Math.min(tileW, tileH) * 0.36;
+
+          ctx.save();
+          ctx.translate(cx, cy);
+          ctx.shadowColor = frightened ? "rgba(53,242,168,0.75)" : ghostColors[g.colorIndex];
+          ctx.shadowBlur = 14;
+          ctx.fillStyle = frightened ? "#35f2a8" : ghostColors[g.colorIndex];
+
+          ctx.beginPath();
+          ctx.arc(0, -r * 0.1, r, Math.PI, 0);
+          ctx.lineTo(r, r * 0.78);
+          for (let i = 0; i < 4; i++) {
+            const px = r - (i + 0.5) * (r * 0.5);
+            const py = i % 2 === 0 ? r * 0.54 : r * 0.78;
+            ctx.lineTo(px, py);
+          }
+          ctx.lineTo(-r, r * 0.78);
+          ctx.closePath();
+          ctx.fill();
+
+          ctx.shadowBlur = 0;
+          ctx.fillStyle = "#fff";
+          ctx.beginPath();
+          ctx.arc(-r * 0.35, -r * 0.12, r * 0.2, 0, Math.PI * 2);
+          ctx.arc(r * 0.35, -r * 0.12, r * 0.2, 0, Math.PI * 2);
+          ctx.fill();
+
+          ctx.fillStyle = "#101426";
+          ctx.beginPath();
+          ctx.arc(-r * 0.32, -r * 0.1, r * 0.09, 0, Math.PI * 2);
+          ctx.arc(r * 0.38, -r * 0.1, r * 0.09, 0, Math.PI * 2);
+          ctx.fill();
+
+          ctx.restore();
+        });
+      }
+
+      function drawFrightenedTimer() {
+        const left = frightenedUntil - performance.now();
+        if (left <= 0) return;
+
+        const w = canvas.width * Math.max(0, Math.min(1, left / 8500));
+        ctx.fillStyle = "rgba(53,242,168,0.9)";
+        ctx.fillRect(0, 0, w, 5);
+      }
+
+      function roundRect(ctx, x, y, w, h, r) {
+        const rr = Math.min(r, w / 2, h / 2);
+        ctx.beginPath();
+        ctx.moveTo(x + rr, y);
+        ctx.arcTo(x + w, y, x + w, y + h, rr);
+        ctx.arcTo(x + w, y + h, x, y + h, rr);
+        ctx.arcTo(x, y + h, x, y, rr);
+        ctx.arcTo(x, y, x + w, y, rr);
+        ctx.closePath();
+      }
+
+      document.querySelectorAll("[data-dir]").forEach((btn) => {
+        btn.addEventListener("pointerdown", (e) => {
+          e.preventDefault();
+          setDirection(btn.dataset.dir);
+        });
+      });
+
+      startBtn.onclick = startGame;
+      pauseBtn.addEventListener("click", togglePause);
+
+      document.addEventListener("keydown", (e) => {
+        const map = {
+          ArrowUp: "up",
+          ArrowDown: "down",
+          ArrowLeft: "left",
+          ArrowRight: "right",
+          w: "up",
+          s: "down",
+          a: "left",
+          d: "right"
+        };
+
+        if (map[e.key]) {
+          e.preventDefault();
+          setDirection(map[e.key]);
+        }
+
+        if (e.key === " " || e.key === "Escape") {
+          e.preventDefault();
+          togglePause();
+        }
+      });
+
+      let touchStart = null;
+      gameFrame.addEventListener("pointerdown", (e) => {
+        touchStart = { x: e.clientX, y: e.clientY };
+        gameFrame.setPointerCapture?.(e.pointerId);
+      });
+
+      gameFrame.addEventListener("pointerup", (e) => {
+        if (!touchStart) return;
+
+        const dx = e.clientX - touchStart.x;
+        const dy = e.clientY - touchStart.y;
+        touchStart = null;
+
+        if (Math.hypot(dx, dy) < 18) {
+          if (!running) startGame();
+          return;
+        }
+
+        if (Math.abs(dx) > Math.abs(dy)) {
+          setDirection(dx > 0 ? "right" : "left");
+        } else {
+          setDirection(dy > 0 ? "down" : "up");
+        }
+      });
+
+      window.addEventListener("blur", () => {
+        if (running && !paused) togglePause();
+      });
+
+      freshState(true);
+      draw();
+
+      // Evita scroll/zoom accidentali su mobile mentre si gioca.
+      document.addEventListener("touchmove", (e) => e.preventDefault(), { passive: false });
+    })();
+  </script>
+</body>
+</html>
